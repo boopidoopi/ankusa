@@ -77,6 +77,25 @@ module Ankusa
       counts
     end
 
+    def get_words_counts(words)
+      words_doc = freq_table.find({word: {'$in': words}})
+      counts = []
+
+      words_doc.each do |doc|
+        next unless doc
+
+        counts_hash = Hash.new(0)
+        doc.delete("_id")
+        doc.delete("word")
+        #convert keys to symbols
+        counts_hash.merge!(doc.inject({}){|h, (k, v)| h[(k.to_sym rescue k) || k] = v; h}) 
+
+        counts << counts_hash
+      end
+
+      counts
+    end
+
     def get_total_word_count(klass)
       klass_doc = summary_table.find_one(:klass => klass)
       klass_doc ? klass_doc['word_count'].to_f : 0.0

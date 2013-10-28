@@ -16,6 +16,12 @@ module Ankusa
       distances = Hash.new 0
 
       th = TextHash.new(text)
+
+      words = th.map { |word, count| word }
+      probs = multi_get_word_probs(words, classnames)
+
+      binding.pry
+
       th.each { |word, count|
         thprob = count.to_f / th.length.to_f
         probs = get_word_probs(word, classnames)
