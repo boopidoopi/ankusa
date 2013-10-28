@@ -78,7 +78,7 @@ module Ankusa
     end
 
     def get_words_counts(words)
-      words_doc = freq_table.find({word: {'$in': words}})
+      words_doc = freq_table.find({'word' => {'$in' => words}})
       counts = []
 
       words_doc.each do |doc|
