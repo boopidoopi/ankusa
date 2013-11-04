@@ -13,17 +13,16 @@ module Ankusa
     # klass is a symbol
     def train(klass, text)
       th = TextHash.new(text)
-      th.each { |word, count|
+      th.each do |word, count|
         @storage.incr_word_count klass, word, count
+        @storage.update_vocabulary_size klass, word, count
         yield word, count if block_given?
-      }
-      @storage.incr_total_word_count klass, th.word_count
-      doccount = (text.kind_of? Array) ? text.length : 1
-      @storage.incr_doc_count klass, doccount
+      end
+
+      doc_count = (text.kind_of? Array) ? text.length : 1
+      @storage.incr_total_summary_statements(klass, th.word_count, doc_count)
       @classnames << klass unless @classnames.include? klass
-      # cache is now dirty of these vars
-      @doc_count_totals = nil
-      @vocab_sizes = nil
+
       th
     end
 
@@ -31,39 +30,42 @@ module Ankusa
     # klass is a symbol
     def untrain(klass, text)
       th = TextHash.new(text)
-      th.each { |word, count|
+      th.each do |word, count|
         @storage.incr_word_count klass, word, -count
+        @storage.update_vocabulary_size klass, word, -count
         yield word, count if block_given?
-      }
-      @storage.incr_total_word_count klass, -th.word_count
+      end
+
       doccount = (text.kind_of? Array) ? text.length : 1
-      @storage.incr_doc_count klass, -doccount
-      # cache is now dirty of these vars
-      @doc_count_totals = nil
-      @vocab_sizes = nil
+      @storage.incr_total_summary_statements(klass, -th.word_count, -doc_count)
+
       th
     end
 
     protected
-    def get_word_probs(words, classnames)
+    def get_word_probs(class_counts_hash, classnames)
       probs = Hash.new 0
-      words.each { |k,v| probs[k] = v if classnames.include? k }
-      vs = vocab_sizes
-      classnames.each { |cn|
-        # if we've never seen the class, the word prob is 0
-        next unless vs.has_key? cn
+      class_counts_hash.each do |classname, count| 
+        probs[classname] = count if classnames.include? classname 
+      end
 
+      classnames.each do |classname|
+        # if we've never seen the class, the word prob is 0
+        next unless vocab_sizes.has_key? classname
         # use a laplacian smoother
-        probs[cn] = (probs[cn] + 1).to_f / (@storage.get_total_word_count(cn) + vs[cn]).to_f
-      }
+        # @storage.get_total_word_count(classname)
+        probs[classname] = (probs[classname] + 1).to_f / (@storage.get_total_word_count + vocab_sizes[classname]).to_f
+      end
+
       probs
     end
 
     def multi_get_word_probs(words, classnames)
-      probs = []
-      @storage.get_words_counts(words).each do |counts_hash|
-        probs << get_word_probs(counts_hash, classnames)
+      probs = Hash.new 0
+      @storage.get_words_counts(words).each do |word, class_counts_hash|
+        probs[word] = get_word_probs(class_counts_hash, classnames)
       end
+      
       probs
     end
 
@@ -74,7 +76,5 @@ module Ankusa
     def vocab_sizes
       @vocab_sizes ||= @storage.get_vocabulary_sizes
     end
-
   end
-
 end

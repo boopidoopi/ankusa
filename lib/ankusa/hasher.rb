@@ -1,5 +1,5 @@
 require 'fast_stemmer'
-require 'ankusa/stopwords'
+require "#{APP_PATH}/backend/lib/ankusa/lib/ankusa/stopwords" #'ankusa/stopwords'
 
 module Ankusa
 

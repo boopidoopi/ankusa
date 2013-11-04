@@ -6,7 +6,6 @@ module Ankusa
 
     def classify(text, classes=nil)
       # return the most probable class
-
       result = log_likelihoods(text, classes)
       if result.values.uniq.size. === 1
         # unless all classes are equally likely, then return nil
@@ -34,28 +33,42 @@ module Ankusa
     # Classes is an array of classes to look at
     def log_likelihoods(text, classnames=nil)
       classnames ||= @classnames
-      result = Hash.new 0
+      @result = Hash.new 0
+      calculate_prior(classnames)
 
-      TextHash.new(text).each { |word, count|
-        probs = get_word_probs(word, classnames)
-        classnames.each { |k|
-          # log likelihood should be negative infinity if we've never seen the klass
-          result[k] += probs[k] > 0 ? (Math.log(probs[k]) * count) : -INFTY
-        }
-      }
+      binding.pry
+      calculate_frequency(text, classnames)
 
-      # add the prior
+      binding.pry
+      @result
+    end
+
+    def calculate_prior(classnames)
       doc_counts = doc_count_totals.select { |k,v| classnames.include? k }.map { |k,v| v }
+      doc_count_total = (doc_counts.inject(0){ |x,y| x+y }).to_f
 
-      doc_count_total = (doc_counts.inject(0){ |x,y| x+y } + classnames.length).to_f
+      classnames.each do |classname|
+        @result[classname] += Math.log((@storage.get_doc_count(classname) + 1).to_f / doc_count_total)
+      end
+    end
 
-      classnames.each { |k|
-        result[k] += Math.log((@storage.get_doc_count(k) + 1).to_f / doc_count_total)
-      }
+    def calculate_frequency(text, classnames)
+      th = TextHash.new(text)
+      words = th.map { |word, count| word }
+      probs = multi_get_word_probs(words, classnames)
 
-      result
+      th.each do |word_array|
+        word, count = word_array.first, word_array.last
+        prob = probs[word]
+
+        next if prob.nil?
+
+        classnames.each do |k|
+          # log likelihood should be negative infinity if we've never seen the klass
+          @result[k] += prob[k] > 0 ? (Math.log(prob[k]) * count) : -INFTY
+        end
+      end
     end
 
   end
-
 end

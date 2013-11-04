@@ -1,5 +1,5 @@
 require 'mongo'
-#require 'bson_ext'
+# require 'bson_ext'
 
 module Ankusa
   class MongoDbStorage
@@ -17,24 +17,23 @@ module Ankusa
 
       @klass_word_counts = {}
       @klass_doc_counts = {}
-
-      init_tables
     end
 
     def init_tables
       @db.create_collection(@ftablename) unless @db.collection_names.include?(@ftablename)
       freq_table.create_index('word')
+
       @db.create_collection(@stablename) unless @db.collection_names.include?(@stablename)
       summary_table.create_index('klass')
+    end
+
+    def classnames
+      @classnames ||= summary_table.distinct('klass')
     end
 
     def drop_tables
       @db.drop_collection(@ftablename)
       @db.drop_collection(@stablename)
-    end
-
-    def classnames
-      summary_table.distinct('klass')
     end
 
     def reset
@@ -44,23 +43,19 @@ module Ankusa
 
     def incr_word_count(klass, word, count)
       freq_table.update({:word => word}, { '$inc' => {klass => count} }, :upsert => true)
+    end
 
-      #update vocabulary size
+    def update_vocabulary_size(klass, word, count)
       word_doc = freq_table.find_one({:word => word})
       if word_doc[klass.to_s] == count
-        increment_summary_klass(klass, 'vocabulary_size', 1)
+        multiple_incr_summary(klass, { 'vocabulary_size' => 1 })
       elsif word_doc[klass.to_s] == 0
-        increment_summary_klass(klass, 'vocabulary_size', -1)
+        multiple_incr_summary(klass, { 'vocabulary_size' => -1 })
       end
-      word_doc[klass.to_s]
     end
 
-    def incr_total_word_count(klass, count)
-      increment_summary_klass(klass, 'word_count', count)
-    end
-
-    def incr_doc_count(klass, count)
-      increment_summary_klass(klass, 'doc_count', count)
+    def incr_total_summary_statements(klass, word_count, doc_count)
+      multiple_incr_summary(klass, { 'word_count' => word_count, 'doc_count' => doc_count })
     end
 
     def get_word_counts(word)
@@ -79,26 +74,34 @@ module Ankusa
 
     def get_words_counts(words)
       words_doc = freq_table.find({'word' => {'$in' => words}})
-      counts = []
+      counts = Hash.new(0)
 
       words_doc.each do |doc|
         next unless doc
 
         counts_hash = Hash.new(0)
+        word = doc["word"]
+
         doc.delete("_id")
         doc.delete("word")
-        #convert keys to symbols
-        counts_hash.merge!(doc.inject({}){|h, (k, v)| h[(k.to_sym rescue k) || k] = v; h}) 
 
-        counts << counts_hash
+        #convert keys to symbols
+        converted_counts = doc.inject({}) do |h, (k, v)| 
+          h[(k.to_sym rescue k) || k] = v
+          h
+        end
+        counts_hash.merge!(converted_counts) 
+
+        counts[word] = counts_hash
       end
 
       counts
     end
 
-    def get_total_word_count(klass)
-      klass_doc = summary_table.find_one(:klass => klass)
-      klass_doc ? klass_doc['word_count'].to_f : 0.0
+    def get_total_word_count
+      @count_unique_words ||= freq_table.distinct("word").count.to_f
+      # klass_doc = summary_table.find_one(:klass => klass)
+      # klass_doc ? klass_doc['word_count'].to_f : 0.0
     end
 
     def doc_count_totals
@@ -129,6 +132,7 @@ module Ankusa
     def close
     end
 
+
     private
     def summary_table
       @stable ||= @db[@stablename]
@@ -138,8 +142,8 @@ module Ankusa
       @ftable ||= @db[@ftablename]
     end
 
-    def increment_summary_klass(klass, field, count)
-      summary_table.update({:klass => klass}, { '$inc' => {field => count} }, :upsert => true)
+    def multiple_incr_summary(klass, statements)
+      summary_table.update({:klass => klass}, { '$inc' => statements }, :upsert => true)
     end
 
   end

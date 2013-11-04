@@ -17,6 +17,7 @@ module Ankusa
 
       th = TextHash.new(text)
 
+      binding.pry
       words = th.map { |word, count| word }
       probs = multi_get_word_probs(words, classnames)
 
