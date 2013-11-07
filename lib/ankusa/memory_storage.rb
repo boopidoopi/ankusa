@@ -5,8 +5,8 @@ module Ankusa
       init_tables
     end
 
-    def classnames
-      @classnames ||= @total_doc_counts.keys
+    def self.classnames
+      @@classnames ||= @total_doc_counts.keys
     end
 
     def reset
