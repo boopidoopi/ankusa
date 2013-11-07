@@ -26,9 +26,7 @@ module Ankusa
       data = {}
       begin
         file = File.open(@file) 
-        file do |f|
-          data = Marshal.load(f)
-        end
+        data = Marshal.load(file)
         file.close
 
         @freqs = data[:freqs]
