@@ -6,7 +6,7 @@ module Ankusa
     def initialize(storage)
       @storage = storage
       @storage.init_tables
-      @classnames = @storage.classnames
+      @classnames ||= @storage.classnames
     end
 
     # text can be either an array of strings or a string

@@ -4,10 +4,10 @@ module Ankusa
   class NaiveBayesClassifier
     include Classifier
 
-    def classify(text, classes=nil)
+    def classify(text, classnames=nil)
       # return the most probable class
 
-      result = log_likelihoods(text, classes)
+      result = log_likelihoods(text, classnames)
       if result.values.uniq.size. === 1
         # unless all classes are equally likely, then return nil
         return nil
@@ -35,14 +35,17 @@ module Ankusa
     def log_likelihoods(text, classnames=nil)
       classnames ||= @classnames
       result = Hash.new 0
+      th = TextHash.new(text)
 
-      TextHash.new(text).each { |word, count|
+      th.each do |word, count|
         probs = get_word_probs(word, classnames)
         classnames.each { |k|
           # log likelihood should be negative infinity if we've never seen the klass
           result[k] += probs[k] > 0 ? (Math.log(probs[k]) * count) : -INFTY
         }
-      }
+      end
+
+      th = nil
 
       # add the prior
       doc_counts = doc_count_totals.select { |k,v| classnames.include? k }.map { |k,v| v }
@@ -55,7 +58,5 @@ module Ankusa
 
       result
     end
-
   end
-
 end
