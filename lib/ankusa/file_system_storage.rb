@@ -25,9 +25,11 @@ module Ankusa
     def init_tables
       data = {}
       begin
-        File.open(@file) do |f|
+        f = File.open(@file) do |f|
           data = Marshal.load(f)
         end
+        f.close
+        
         @freqs = data[:freqs]
         @total_word_counts = data[:total_word_counts]
         @total_doc_counts = data[:total_doc_counts]
