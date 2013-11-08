@@ -5,7 +5,6 @@ module Ankusa
 
     def initialize(storage)
       @storage = storage
-      @storage.init_tables
       @classnames ||= @storage.classnames
     end
 
